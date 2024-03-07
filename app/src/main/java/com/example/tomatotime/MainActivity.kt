@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,11 +14,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -33,24 +27,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tomatotime.ui.theme.TomatotimeTheme
-import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 
 
 class MainActivity : ComponentActivity() {
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TomatotimeTheme {
+                val timeViewModel: TimeViewModel = viewModel()
                 // A surface container using the 'background' color from the theme
 //                Surface(
 //                    modifier = Modifier.fillMaxSize(),
 //                    color = MaterialTheme.colorScheme.background
 //                ) {
-                TomatoLayout()
+                TomatoLayout(timeViewModel)
 //                }
             }
         }
@@ -59,12 +52,7 @@ class MainActivity : ComponentActivity() {
 
 //@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun TomatoLayout() {
-    val timeViewModel: TimeViewModel = viewModel()
-
-//    var timeLeft: Long by remember { mutableStateOf(60) }
-//    var startCountDown by remember { mutableStateOf(false) }
-
+fun TomatoLayout(timeViewModel: TimeViewModel) {
     Scaffold(
         Modifier.fillMaxSize()
     )
@@ -72,16 +60,23 @@ fun TomatoLayout() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            verticalArrangement = Arrangement.Center,
+                .padding(top = 200.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             DrawCircle(timeViewModel.timeAngle.value)
+
+            Text(
+                text = timeViewModel.timeFormat.value,
+                fontSize = 24.sp,
+                modifier = Modifier.padding(top = 20.dp)
+            )
+
             DrawButtons(
                 timeViewModel.startDountDown.value,
-                timeLeft = timeViewModel.timeLeft.value,
-                updateTimeLeft = {  },
-                onStartCountdown = { timeViewModel.startCountDown() }
+                onStartCountdown = { timeViewModel.startCountDown() },
+                onStopCountdown = { timeViewModel.stopCountDown() },
+                onReset = { timeViewModel.reset() }
             )
         }
     }
@@ -91,27 +86,33 @@ fun TomatoLayout() {
 @Composable
 fun DrawButtons(
     statCountDown: Boolean,
-    timeLeft: Long,
-    updateTimeLeft: (Long) -> Unit,
-    onStartCountdown: () -> Unit
+    onStartCountdown: () -> Unit,
+    onStopCountdown: () -> Unit,
+    onReset: () -> Unit
 ) {
-    Column {
+    Column(
+        modifier = Modifier
+            .width(150.dp)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Button(
-            modifier = Modifier
-                .width(150.dp)
-                .padding(16.dp),
-            onClick = { onStartCountdown() }) {
-            Text(text = stringResource(id = R.string.start))
-
-            if (statCountDown) {
-                // LaunchedEffect用于处理倒计时逻辑
-                LaunchedEffect(key1 = timeLeft) {
-                    if (timeLeft > 0) {
-                        delay(1000) // 等待一秒
-                        updateTimeLeft(timeLeft - 1) // 更新剩余时间
-                        System.out.println("current time " + timeLeft)
-                    }
+            onClick = {
+                if (statCountDown) {
+                    onStopCountdown()
+                } else {
+                    onStartCountdown()
                 }
+            }) {
+            if (statCountDown) {
+                Text(text = stringResource(id = R.string.stop))
+            } else {
+                Text(text = stringResource(id = R.string.start))
+            }
+        }
+        if (statCountDown) {
+            Button(onClick = { onReset() }) {
+                Text(text = stringResource(id = R.string.reset))
             }
         }
     }
@@ -121,7 +122,7 @@ fun DrawButtons(
 fun DrawCircle(sweepAngle: Double) {
     val size = 160.dp
     Box(
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(size)) {
             val r = size.toPx() / 2
@@ -183,16 +184,10 @@ fun DrawCircle(sweepAngle: Double) {
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    TomatoLayout()
+    var viewModel: TimeViewModel = TimeViewModel()
+    viewModel.timeFormat.value = "30"
+    TomatoLayout(viewModel)
 }
