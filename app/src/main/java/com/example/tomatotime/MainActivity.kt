@@ -1,5 +1,7 @@
 package com.example.tomatotime
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,13 +9,22 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -21,38 +32,43 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.preference.PreferenceManager
 import com.example.tomatotime.ui.theme.TomatotimeTheme
 import kotlin.math.cos
 import kotlin.math.sin
 
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val timeViewModel: TimeViewModel = ViewModelProvider(this).get(TimeViewModel::class.java)
+        timeViewModel.setUpDefaultInfo(loadSetting(this).toLong())
         setContent {
             TomatotimeTheme {
-                val timeViewModel: TimeViewModel = viewModel()
+
                 // A surface container using the 'background' color from the theme
-//                Surface(
-//                    modifier = Modifier.fillMaxSize(),
-//                    color = MaterialTheme.colorScheme.background
-//                ) {
-                TomatoLayout(timeViewModel)
-//                }
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    TomatoLayout(timeViewModel)
+                }
             }
         }
     }
+
+
 }
 
-//@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun TomatoLayout(timeViewModel: TimeViewModel) {
+//    var showDialog by remember { mutableStateOf(false) }
     Scaffold(
         Modifier.fillMaxSize()
     )
@@ -78,6 +94,24 @@ fun TomatoLayout(timeViewModel: TimeViewModel) {
                 onStopCountdown = { timeViewModel.stopCountDown() },
                 onReset = { timeViewModel.reset() }
             )
+        }
+        DrawSettingButton { timeViewModel.showDialog() }
+        SettingDialog(timeViewModel)
+    }
+}
+
+@Composable
+fun DrawSettingButton(
+    onClick: () -> Unit
+) {
+    Box(
+        contentAlignment = Alignment.TopEnd,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 10.dp),
+    ) {
+        Button(onClick = { onClick() }) {
+            Text(text = stringResource(id = R.string.Setting))
         }
     }
 }
@@ -184,10 +218,74 @@ fun DrawCircle(sweepAngle: Double) {
     }
 }
 
+@Composable
+fun SettingDialog(
+    timeViewModel: TimeViewModel
+) {
+    val context = LocalContext.current
+
+    var settingValue by remember {
+        mutableStateOf(loadSetting(context))
+    }
+
+    if (timeViewModel.showDialog.value) {
+        AlertDialog(
+            onDismissRequest = { timeViewModel.dismissDialog() },
+            title = { Text("Settings") },
+            text = {
+                TextField(
+                    value = settingValue,
+                    onValueChange = { settingValue = it },
+                    label = { Text("Enter your setting") }
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        saveSettings(context, settingValue)
+                        timeViewModel.settingNewTotalTime(settingValue.toLong())
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { timeViewModel.dismissDialog() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+}
+
+val KEY_TOTAL_TIME = "key-total-time"
+
+fun loadSetting(context: Context): String {
+    val sharedPreferences: SharedPreferences =
+        PreferenceManager.getDefaultSharedPreferences(context)
+    return sharedPreferences.getString(KEY_TOTAL_TIME, "60") ?: "60"
+}
+
+fun saveSettings(context: Context, value: String) {
+    val sharedPreferences: SharedPreferences =
+        PreferenceManager.getDefaultSharedPreferences(context)
+    with(sharedPreferences.edit()) {
+        putString(KEY_TOTAL_TIME, value)
+        apply()
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     var viewModel: TimeViewModel = TimeViewModel()
     viewModel.timeFormat.value = "30"
     TomatoLayout(viewModel)
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DialogPreview() {
+//    SettingDialog()
 }
